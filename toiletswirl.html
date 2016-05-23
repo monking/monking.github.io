@@ -1,0 +1,180 @@
+<!doctype html>
+<html>
+  <head>
+		<title>Toilet Swirl</title>
+<script type="text/javascript">
+	(function() {
+		var button, videos, init, sync, onPlayerReady, onPlayerStateChange, onPlayerTimeUpdate, onPlayerChapterUpdate, getVideo, getVideoChapterIndex;
+
+		videos = [
+			{
+				name: "Smarter Every Day",
+				containerId: "player-smarter",
+				id: "aDorTBEhEtk",
+				controller: null,
+				currentChapterIndex: 0,
+				inSync: false,
+				playing: false,
+				chapters: [
+					{
+						name: "intro",
+						start: 0
+					},
+					{
+						name: "content",
+						start: 17,
+						sync: true
+					},
+					{
+						name: "takeaway",
+						start: 3641
+					}
+				]
+			},
+			{
+				name: "Veritasium",
+				containerId: "player-veritasium",
+				id: "ihv4f7VMeJw",
+				controller: null,
+				currentChapterIndex: 0,
+				inSync: false,
+				playing: false,
+				chapters: [
+					{
+						name: "intro",
+						start: 0
+					},
+					{
+						name: "content",
+						start: 17,
+						sync: true
+					},
+					{
+						name: "takeaway",
+						start: 3641
+					}
+				]
+			}
+		];
+
+		getVideo = function(id) {
+			var i, len;
+
+			for(i = 0, len = videos.length; i < len; i++) {
+				if(videos[i].containerId === id) {
+					return videos[i];
+				}
+			}
+		};
+
+		getVideoChapterIndex = function(video) {
+			var i, len, time, index;
+			time = video.controller.getCurrentTime();
+			index = null;
+			for(i = 0, len = video.chapters.length; i < len; i++) {
+				if(video.chapters[i].start > time) break;
+				index = i;
+			}
+			return index;
+		};
+
+		onPlayerReady = function(event) {
+			var video;
+			video = getVideo(event.target.c.id);
+			if(event.data == YT.PlayerState.CUED) {
+				video.controller.playVideo(); // trying to prime it to play without lag
+				video.controller.pauseVideo();
+				updatePlayerTimes();
+			}
+		};
+
+		onPlayerStateChange = function(event) {
+			var video, index;
+			video = getVideo(event.target.c.id);
+			updatePlayerTimes();
+		};
+
+		onPlayerTimeUpdate = function(video) {
+			var currentChapterIndex;
+			currentChapterIndex = getVideoChapterIndex(video);
+			if(currentChapterIndex !== video.currentChapterIndex) {
+				video.currentChapterIndex = currentChapterIndex;
+				onPlayerChapterUpdate(video);
+			}
+		};
+
+		onPlayerChapterUpdate = function(video) {
+			var i, len;
+
+			len = videos.length;
+
+			console.log(video.name + ' is now on chapter ' + video.currentChapterIndex);
+
+			if(video.chapters[video.currentChapterIndex].sync) {
+				for(i = 0; i < len; i++) {
+					if(videos[i] !== video) {
+						videos[i].controller.playVideo();
+						videos[i].controller.seekTo(videos[i].chapters[video.currentChapterIndex].start);
+						videos[i].inSync = true;
+					}
+				}
+			} else if(video.inSync) {
+				video.inSync = false;
+				for(i = 0; i < len; i++) {
+					if(videos[i] !== video) {
+						videos[i].controller.pauseVideo();
+						videos[i].inSync = false;
+					}
+				}
+			}
+		};
+
+		updatePlayerTimes = function() {
+			var i, len, newTime;
+			len = videos.length;
+			for(i = 0; i < len; i++) {
+				if(typeof videos[i].controller.getCurrentTime !== 'function') continue;
+				newTime = videos[i].controller.getCurrentTime();
+				if(newTime !== videos[i].currentTime) {
+					videos[i].currentTime = newTime;
+					onPlayerTimeUpdate(videos[i]);
+				}
+			}
+		};
+
+		init = function() {
+			var i, len;
+
+			for(i = 0, len = videos.length; i < len; i++) {
+				videos[i].controller = new YT.Player(videos[i].containerId, {
+					height: '390',
+					width: '640',
+					videoId: videos[i].id,
+					events: {
+						'onReady': onPlayerReady,
+						'onStateChange': onPlayerStateChange
+					}
+				});
+			}
+
+			setInterval(updatePlayerTimes, 10);
+
+			button = document.getElementById('auto_sync_videos_button');
+			button.addEventListener('click', sync);
+		};
+
+		sync = function() {
+			videos[0].controller.play();
+		};
+		window.onYouTubeIframeAPIReady = init;
+		window.syncPlayers = videos;
+	})();
+</script>
+<script type="text/javascript" src="https://www.youtube.com/iframe_api"></script>
+  </head>
+  <body>
+		<div id="player-smarter"></div>
+		<div id="player-veritasium"></div>
+		<div class="sync-button" id="auto_sync_videos_button">Start the auto-sync process, and sit back!</div>
+  </body>
+</html>
